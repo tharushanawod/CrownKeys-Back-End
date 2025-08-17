@@ -8,6 +8,7 @@ const path = require("path");
 const authRoutes = require("./routes/auth.routes");
 const listingsRoutes = require("./routes/listings.routes");
 const agentsRoutes = require("./routes/agents.routes");
+const ownerRoutes = require("./routes/owner.routes");
 
 // Import middleware
 const { handleMulterError } = require("./services/fileUpload.service");
@@ -63,6 +64,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
 app.use("/api/agents", agentsRoutes);
+app.use("/api/owner", ownerRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

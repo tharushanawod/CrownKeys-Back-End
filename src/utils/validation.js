@@ -27,7 +27,7 @@ const registrationSchema = Joi.object({
       "string.pattern.base": "Please provide a valid phone number",
       "any.required": "phone number is required",
     }),
-  role: Joi.string().valid("buyer", "agent", "admin").default("buyer"),
+  role: Joi.string().valid("buyer", "agent", "admin", "owner").default("buyer"),
 });
 
 const loginSchema = Joi.object({
@@ -52,9 +52,13 @@ const listingSchema = Joi.object({
     "string.max": "Description cannot exceed 2000 characters",
     "any.required": "Description is required",
   }),
-  type: Joi.string().valid("sale", "rent").required().messages({
-    "any.only": 'Type must be either "sale" or "rent"',
-    "any.required": "Type is required",
+  price: Joi.number().positive().required().messages({
+    "number.positive": "Price must be a positive number",
+    "any.required": "Price is required",
+  }),
+  size: Joi.number().positive().required().messages({
+    "number.positive": "Size must be a positive number",
+    "any.required": "Size is required",
   }),
   property_type: Joi.string()
     .valid(
@@ -72,22 +76,6 @@ const listingSchema = Joi.object({
         "Property type must be one of: house, apartment, condo, townhouse, villa, land, commercial",
       "any.required": "Property type is required",
     }),
-  price: Joi.number().positive().required().messages({
-    "number.positive": "Price must be a positive number",
-    "any.required": "Price is required",
-  }),
-  bedrooms: Joi.number().integer().min(0).max(20).optional().messages({
-    "number.integer": "Bedrooms must be a whole number",
-    "number.min": "Bedrooms cannot be negative",
-    "number.max": "Bedrooms cannot exceed 20",
-  }),
-  bathrooms: Joi.number().min(0).max(20).optional().messages({
-    "number.min": "Bathrooms cannot be negative",
-    "number.max": "Bathrooms cannot exceed 20",
-  }),
-  area: Joi.number().positive().optional().messages({
-    "number.positive": "Area must be a positive number",
-  }),
   address: Joi.string().min(5).max(300).required().messages({
     "string.min": "Address must be at least 5 characters long",
     "string.max": "Address cannot exceed 300 characters",
@@ -103,34 +91,158 @@ const listingSchema = Joi.object({
     "string.max": "State cannot exceed 100 characters",
     "any.required": "State is required",
   }),
-  zip_code: Joi.string()
-    .pattern(/^[0-9]{5}(-[0-9]{4})?$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "Please provide a valid ZIP code",
+  zip_code: Joi.string().required().messages({
+    "any.required": "ZIP code is required",
+  }),
+  location: Joi.object({
+    lat: Joi.number().min(-90).max(90).required().messages({
+      "number.min": "Latitude must be between -90 and 90",
+      "number.max": "Latitude must be between -90 and 90",
+      "any.required": "Latitude is required",
     }),
-  latitude: Joi.number().min(-90).max(90).optional().messages({
-    "number.min": "Latitude must be between -90 and 90",
-    "number.max": "Latitude must be between -90 and 90",
+    lng: Joi.number().min(-180).max(180).required().messages({
+      "number.min": "Longitude must be between -180 and 180",
+      "number.max": "Longitude must be between -180 and 180",
+      "any.required": "Longitude is required",
+    }),
+  })
+    .required()
+    .messages({
+      "any.required": "Location coordinates are required",
+    }),
+  bedrooms: Joi.number().integer().min(0).max(20).optional().messages({
+    "number.integer": "Bedrooms must be a whole number",
+    "number.min": "Bedrooms cannot be negative",
+    "number.max": "Bedrooms cannot exceed 20",
   }),
-  longitude: Joi.number().min(-180).max(180).optional().messages({
-    "number.min": "Longitude must be between -180 and 180",
-    "number.max": "Longitude must be between -180 and 180",
+  bathrooms: Joi.number().min(0).max(20).optional().messages({
+    "number.min": "Bathrooms cannot be negative",
+    "number.max": "Bathrooms cannot exceed 20",
   }),
-  features: Joi.array().items(Joi.string()).optional(),
-  agent_id: Joi.string().uuid().optional(),
+  amenities: Joi.array().items(Joi.string()).optional().default([]),
+  photos: Joi.array().items(Joi.string().uri()).optional().default([]),
+  status: Joi.string()
+    .valid("active", "inactive", "sold", "rented")
+    .default("active")
+    .messages({
+      "any.only": "Status must be one of: active, inactive, sold, rented",
+    }),
 });
 
 const listingUpdateSchema = listingSchema.fork(
   [
     "title",
     "description",
-    "type",
-    "property_type",
     "price",
+    "size",
+    "property_type",
     "address",
     "city",
     "state",
+    "zip_code",
+    "location",
+  ],
+  (schema) => schema.optional()
+);
+
+// Property validation schema for owners (similar to listing but for properties table)
+const propertySchema = Joi.object({
+  title: Joi.string().min(5).max(200).required().messages({
+    "string.min": "Title must be at least 5 characters long",
+    "string.max": "Title cannot exceed 200 characters",
+    "any.required": "Title is required",
+  }),
+  description: Joi.string().min(20).max(2000).required().messages({
+    "string.min": "Description must be at least 20 characters long",
+    "string.max": "Description cannot exceed 2000 characters",
+    "any.required": "Description is required",
+  }),
+  price: Joi.number().positive().required().messages({
+    "number.positive": "Price must be a positive number",
+    "any.required": "Price is required",
+  }),
+  size: Joi.number().positive().required().messages({
+    "number.positive": "Size must be a positive number",
+    "any.required": "Size is required",
+  }),
+  property_type: Joi.string()
+    .valid(
+      "house",
+      "apartment",
+      "condo",
+      "townhouse",
+      "villa",
+      "land",
+      "commercial"
+    )
+    .required()
+    .messages({
+      "any.only":
+        "Property type must be one of: house, apartment, condo, townhouse, villa, land, commercial",
+      "any.required": "Property type is required",
+    }),
+  address: Joi.string().min(5).max(300).required().messages({
+    "string.min": "Address must be at least 5 characters long",
+    "string.max": "Address cannot exceed 300 characters",
+    "any.required": "Address is required",
+  }),
+  city: Joi.string().min(2).max(100).required().messages({
+    "string.min": "City must be at least 2 characters long",
+    "string.max": "City cannot exceed 100 characters",
+    "any.required": "City is required",
+  }),
+  state: Joi.string().min(2).max(100).required().messages({
+    "string.min": "State must be at least 2 characters long",
+    "string.max": "State cannot exceed 100 characters",
+    "any.required": "State is required",
+  }),
+  zip_code: Joi.string().required().messages({
+    "any.required": "ZIP code is required",
+  }),
+  location: Joi.object({
+    lat: Joi.number().min(-90).max(90).required().messages({
+      "number.min": "Latitude must be between -90 and 90",
+      "number.max": "Latitude must be between -90 and 90",
+      "any.required": "Latitude is required",
+    }),
+    lng: Joi.number().min(-180).max(180).required().messages({
+      "number.min": "Longitude must be between -180 and 180",
+      "number.max": "Longitude must be between -180 and 180",
+      "any.required": "Longitude is required",
+    }),
+  })
+    .required()
+    .messages({
+      "any.required": "Location coordinates are required",
+    }),
+  bedrooms: Joi.number().integer().min(0).max(20).optional().messages({
+    "number.integer": "Bedrooms must be a whole number",
+    "number.min": "Bedrooms cannot be negative",
+    "number.max": "Bedrooms cannot exceed 20",
+  }),
+  bathrooms: Joi.number().min(0).max(20).optional().messages({
+    "number.min": "Bathrooms cannot be negative",
+    "number.max": "Bathrooms cannot exceed 20",
+  }),
+  amenities: Joi.array().items(Joi.string()).optional().default([]),
+  photos: Joi.array().items(Joi.string().uri()).optional().default([]),
+  status: Joi.string().valid("active", "inactive").default("active").messages({
+    "any.only": "Status must be one of: active, inactive",
+  }),
+});
+
+const propertyUpdateSchema = propertySchema.fork(
+  [
+    "title",
+    "description",
+    "price",
+    "size",
+    "property_type",
+    "address",
+    "city",
+    "state",
+    "zip_code",
+    "location",
   ],
   (schema) => schema.optional()
 );
@@ -184,7 +296,9 @@ const agentSchema = Joi.object({
 
 // Validation middleware functions
 const validateRegistration = (req, res, next) => {
-  const { error } = registrationSchema.validate(req.body, { abortEarly: false });
+  const { error } = registrationSchema.validate(req.body, {
+    abortEarly: false,
+  });
 
   if (error) {
     return res.status(400).json({
@@ -215,7 +329,9 @@ const validateLogin = (req, res, next) => {
 };
 
 const validateListing = (req, res, next) => {
-  const { error } = listingSchema.validate(req.body);
+    const { error } = listingSchema.validate(req.body, {
+    abortEarly: false,
+  })
   if (error) {
     return res.status(400).json({
       success: false,
@@ -259,6 +375,36 @@ const validateAgent = (req, res, next) => {
   next();
 };
 
+const validateProperty = (req, res, next) => {
+  const { error } = propertySchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: error.details.map((detail) => ({
+        field: detail.path[0],
+        message: detail.message,
+      })),
+    });
+  }
+  next();
+};
+
+const validatePropertyUpdate = (req, res, next) => {
+  const { error } = propertyUpdateSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: error.details.map((detail) => ({
+        field: detail.path[0],
+        message: detail.message,
+      })),
+    });
+  }
+  next();
+};
+
 // Helper functions
 const sanitizeInput = (input) => {
   if (typeof input === "string") {
@@ -281,6 +427,8 @@ module.exports = {
   validateListing,
   validateListingUpdate,
   validateAgent,
+  validateProperty,
+  validatePropertyUpdate,
   sanitizeInput,
   sanitizeObject,
   schemas: {
@@ -289,5 +437,7 @@ module.exports = {
     listingSchema,
     listingUpdateSchema,
     agentSchema,
+    propertySchema,
+    propertyUpdateSchema,
   },
 };
