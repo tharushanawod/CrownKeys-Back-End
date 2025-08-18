@@ -329,9 +329,9 @@ const validateLogin = (req, res, next) => {
 };
 
 const validateListing = (req, res, next) => {
-    const { error } = listingSchema.validate(req.body, {
+  const { error } = listingSchema.validate(req.body, {
     abortEarly: false,
-  })
+  });
   if (error) {
     return res.status(400).json({
       success: false,
@@ -405,6 +405,123 @@ const validatePropertyUpdate = (req, res, next) => {
   next();
 };
 
+const validateInterest = (req, res, next) => {
+  const { error } = interestSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: error.details.map((detail) => ({
+        field: detail.path[0],
+        message: detail.message,
+      })),
+    });
+  }
+  next();
+};
+
+const validateOffer = (req, res, next) => {
+  const { error } = offerSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: error.details.map((detail) => ({
+        field: detail.path[0],
+        message: detail.message,
+      })),
+    });
+  }
+  next();
+};
+
+const validatePurchase = (req, res, next) => {
+  const { error } = purchaseSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: error.details.map((detail) => ({
+        field: detail.path[0],
+        message: detail.message,
+      })),
+    });
+  }
+  next();
+};
+
+// Buyer validation schemas
+const interestSchema = Joi.object({
+  message: Joi.string().max(1000).optional().messages({
+    "string.max": "Message cannot exceed 1000 characters",
+  }),
+  preferred_visit_time: Joi.date().iso().optional().messages({
+    "date.iso": "Please provide a valid date in ISO format",
+  }),
+  contact_method: Joi.string()
+    .valid("email", "phone", "both")
+    .default("email")
+    .messages({
+      "any.only": "Contact method must be one of: email, phone, both",
+    }),
+});
+
+const offerSchema = Joi.object({
+  offer_amount: Joi.number().positive().required().messages({
+    "number.positive": "Offer amount must be a positive number",
+    "any.required": "Offer amount is required",
+  }),
+  message: Joi.string().max(1000).optional().messages({
+    "string.max": "Message cannot exceed 1000 characters",
+  }),
+  offer_type: Joi.string()
+    .valid("purchase", "rent", "lease")
+    .default("purchase")
+    .messages({
+      "any.only": "Offer type must be one of: purchase, rent, lease",
+    }),
+  contingencies: Joi.array().items(Joi.string()).optional().default([]),
+  closing_date: Joi.date().iso().optional().messages({
+    "date.iso": "Please provide a valid closing date in ISO format",
+  }),
+  earnest_money: Joi.number().positive().optional().messages({
+    "number.positive": "Earnest money must be a positive number",
+  }),
+});
+
+const purchaseSchema = Joi.object({
+  purchase_type: Joi.string()
+    .valid("full_payment", "installment", "financing")
+    .default("full_payment")
+    .messages({
+      "any.only":
+        "Purchase type must be one of: full_payment, installment, financing",
+    }),
+  advance_amount: Joi.number().positive().required().messages({
+    "number.positive": "Advance amount must be a positive number",
+    "any.required": "Advance amount is required",
+  }),
+  payment_method: Joi.string()
+    .valid("cash", "bank_transfer", "check", "credit_card")
+    .optional()
+    .messages({
+      "any.only":
+        "Payment method must be one of: cash, bank_transfer, check, credit_card",
+    }),
+  financing_details: Joi.object({
+    bank_name: Joi.string().optional(),
+    loan_amount: Joi.number().positive().optional(),
+    interest_rate: Joi.number().positive().optional(),
+    loan_term: Joi.number().integer().positive().optional(),
+  }).optional(),
+  closing_date: Joi.date().iso().optional().messages({
+    "date.iso": "Please provide a valid closing date in ISO format",
+  }),
+  notes: Joi.string().max(1000).optional().messages({
+    "string.max": "Notes cannot exceed 1000 characters",
+  }),
+});
+
 // Helper functions
 const sanitizeInput = (input) => {
   if (typeof input === "string") {
@@ -429,6 +546,9 @@ module.exports = {
   validateAgent,
   validateProperty,
   validatePropertyUpdate,
+  validateInterest,
+  validateOffer,
+  validatePurchase,
   sanitizeInput,
   sanitizeObject,
   schemas: {
@@ -439,5 +559,8 @@ module.exports = {
     agentSchema,
     propertySchema,
     propertyUpdateSchema,
+    interestSchema,
+    offerSchema,
+    purchaseSchema,
   },
 };
