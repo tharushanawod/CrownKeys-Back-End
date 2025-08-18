@@ -18,25 +18,33 @@ class AuthMiddleware {
       // Extract token from Bearer header
       const token = jwtService.extractTokenFromHeader(authHeader);
 
-      // Verify token
-      const decoded = jwtService.verifyToken(token);
+      // Verify token using Supabase
+      const supabaseUser = await jwtService.verifySupabaseAccessToken(token);
 
-      // Get user from database
+      // Get additional user data from custom users table
       const { data: user, error } = await supabase
         .from("users")
         .select("*")
-        .eq("id", decoded.id)
+        .eq("id", supabaseUser.id)
         .single();
 
       if (error || !user) {
-        return res.status(401).json({
-          success: false,
-          message: "Access denied. Invalid token.",
-        });
+        // If user doesn't exist in custom table, create basic user object
+        req.user = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          role: "buyer", // Default role
+          firstName: supabaseUser.user_metadata?.first_name || "",
+          lastName: supabaseUser.user_metadata?.last_name || "",
+          phone: supabaseUser.user_metadata?.phone || "",
+        };
+      } else {
+        // Use data from custom users table
+        req.user = user;
       }
 
-      // Add user to request object
-      req.user = user;
+      // Add Supabase user data for reference
+      req.supabaseUser = supabaseUser;
       next();
     } catch (error) {
       console.error("Auth middleware error:", error);
@@ -75,27 +83,41 @@ class AuthMiddleware {
 
       if (!authHeader) {
         req.user = null;
+        req.supabaseUser = null;
         return next();
       }
 
       const token = jwtService.extractTokenFromHeader(authHeader);
-      const decoded = jwtService.verifyToken(token);
 
+      // Try to verify Supabase token
+      const supabaseUser = await jwtService.verifySupabaseAccessToken(token);
+
+      // Get additional user data from custom users table
       const { data: user, error } = await supabase
         .from("users")
         .select("*")
-        .eq("id", decoded.id)
+        .eq("id", supabaseUser.id)
         .single();
 
       if (!error && user) {
         req.user = user;
       } else {
-        req.user = null;
+        // Create basic user object from Supabase data
+        req.user = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          role: "buyer",
+          firstName: supabaseUser.user_metadata?.first_name || "",
+          lastName: supabaseUser.user_metadata?.last_name || "",
+          phone: supabaseUser.user_metadata?.phone || "",
+        };
       }
 
+      req.supabaseUser = supabaseUser;
       next();
     } catch (error) {
       req.user = null;
+      req.supabaseUser = null;
       next();
     }
   }

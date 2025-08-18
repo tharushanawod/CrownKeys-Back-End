@@ -75,6 +75,9 @@ class AuthController {
 
       // Generate JWT token
       const token = jwtService.generateToken(userData);
+      //added supabase generated jwt token
+      // const token = authData.session?.access_token;
+
 
       res.status(201).json({
         success: true,
@@ -127,7 +130,8 @@ class AuthController {
       }
 
       // Generate JWT token
-      const token = jwtService.generateToken(userData);
+      // const token = jwtService.generateToken(userData);
+      const token = authData.session?.access_token;
 
       res.json({
         success: true,

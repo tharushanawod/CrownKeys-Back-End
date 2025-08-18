@@ -1,5 +1,8 @@
 const { supabase } = require("../config/supabase");
-const { getFileUrl, deleteFile } = require("../services/fileUpload.service");
+const {
+  uploadDocument,
+  deleteFileFromBucket,
+} = require("../services/fileUpload.service");
 
 class OwnerController {
   // Add new property
@@ -23,10 +26,23 @@ class OwnerController {
       } = req.body;
 
       // Handle uploaded photos
-      let photoUrls = [];
+      let photoPaths = [];
       if (req.files && req.files.length > 0) {
-        // Process uploaded files using file upload service
-        photoUrls = req.files.map((file) => getFileUrl(file.path));
+        // Upload files to Supabase bucket
+        for (const file of req.files) {
+          try {
+            const uniquePath = await uploadDocument(
+              file,
+              ownerId,
+              "Crown-Keys"
+            );
+            
+            photoPaths.push(uniquePath);
+          } catch (uploadError) {
+            console.error("File upload error:", uploadError);
+            // Continue with other files, don't fail the entire request
+          }
+        }
       }
 
       const newProperty = {
@@ -44,7 +60,7 @@ class OwnerController {
         bedrooms: parseInt(bedrooms) || null,
         bathrooms: parseInt(bathrooms) || null,
         amenities: amenities || [],
-        photos: photoUrls,
+        photos: photoPaths, // Store paths for deletion
         status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -203,9 +219,26 @@ class OwnerController {
 
       // Handle uploaded photos
       let photoUrls = existingProperty.photos || [];
+      let photoPaths = existingProperty.photo_paths || [];
       if (req.files && req.files.length > 0) {
-        const newPhotos = req.files.map((file) => getFileUrl(file.path));
-        photoUrls = [...photoUrls, ...newPhotos];
+        // Upload new files to Supabase bucket
+        for (const file of req.files) {
+          try {
+            const publicUrl = await uploadFileToBucket(
+              file,
+              ownerId,
+              "properties"
+            );
+            photoUrls.push(publicUrl);
+            // Extract path from URL for future deletion
+            const urlParts = publicUrl.split("/");
+            const path = urlParts.slice(-2).join("/"); // userId/filename
+            photoPaths.push(path);
+          } catch (uploadError) {
+            console.error("File upload error:", uploadError);
+            // Continue with other files, don't fail the entire request
+          }
+        }
       }
 
       // Remove fields that shouldn't be updated
@@ -217,6 +250,7 @@ class OwnerController {
       const updatedData = {
         ...updates,
         photos: photoUrls,
+        photo_paths: photoPaths, // Store paths for deletion
         updated_at: new Date().toISOString(),
       };
 
@@ -277,13 +311,18 @@ class OwnerController {
         });
       }
 
-      // Delete associated photo files
-      if (existingProperty.photos && existingProperty.photos.length > 0) {
-        existingProperty.photos.forEach((photoUrl) => {
-          // Extract file path from URL and delete file
-          const fileName = photoUrl.split("/").pop();
-          deleteFile(`uploads/${fileName}`);
-        });
+      // Delete associated photo files from Supabase bucket
+      if (
+        existingProperty.photo_paths &&
+        existingProperty.photo_paths.length > 0
+      ) {
+        for (const photoPath of existingProperty.photo_paths) {
+          try {
+            await deleteFileFromBucket(photoPath, "properties");
+          } catch (deleteError) {
+            console.error("Error deleting file from bucket:", deleteError);
+          }
+        }
       }
 
       const { data: property, error } = await supabase
@@ -424,7 +463,7 @@ class OwnerController {
   async removePhotos(req, res) {
     try {
       const { id } = req.params;
-      const { photoUrls } = req.body; // Array of photo URLs to remove
+      const { photoUrls, photoPaths } = req.body; // Arrays of photo URLs and paths to remove
       const ownerId = req.user.id;
 
       // Check if property exists and user owns it
@@ -447,16 +486,26 @@ class OwnerController {
         (photo) => !photoUrls.includes(photo)
       );
 
-      // Delete the actual files from disk
-      photoUrls.forEach((photoUrl) => {
-        const fileName = photoUrl.split("/").pop();
-        deleteFile(`uploads/${fileName}`);
-      });
+      const updatedPaths = (existingProperty.photo_paths || []).filter(
+        (path) => !photoPaths.includes(path)
+      );
+
+      // Delete the actual files from Supabase bucket
+      if (photoPaths && photoPaths.length > 0) {
+        for (const photoPath of photoPaths) {
+          try {
+            await deleteFileFromBucket(photoPath, "properties");
+          } catch (deleteError) {
+            console.error("Error deleting file from bucket:", deleteError);
+          }
+        }
+      }
 
       const { data: property, error } = await supabase
         .from("properties")
         .update({
           photos: updatedPhotos,
+          photo_paths: updatedPaths,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
