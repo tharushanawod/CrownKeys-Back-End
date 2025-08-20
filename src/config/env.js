@@ -25,4 +25,9 @@ module.exports = {
 
   // Database Configuration
   DATABASE_URL: process.env.DATABASE_URL,
+
+  // Google OAuth (add these to your .env file)
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
 };
