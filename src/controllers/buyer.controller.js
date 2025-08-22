@@ -1,4 +1,7 @@
 const { supabase } = require("../config/supabase");
+const {
+  SUPABASE_URL
+} = require("../config/env");
 
 class BuyerController {
   // GET /properties → list all available properties
@@ -170,8 +173,8 @@ class BuyerController {
   // GET /properties/search → filter/search properties (same as getAllProperties but with different endpoint)
   async searchProperties(req, res) {
     // This uses the same logic as getAllProperties
-    try{
- return this.getAllProperties(req, res);
+    try {
+      return this.getAllProperties(req, res);
     } catch (error) {
       console.error("Search properties error:", error);
       res.status(500).json({
@@ -257,14 +260,15 @@ class BuyerController {
       const { page = 1, limit = 10 } = req.query;
       const offset = (page - 1) * limit;
 
+      // Fetch favorites and related properties
       const { data: favorites, error } = await supabase
         .from("favorites")
         .select(
           `
-          id,
-          created_at,
-          properties:property_id (*)
-        `
+        id,
+        created_at,
+        properties:property_id (*)
+      `
         )
         .eq("buyer_id", buyerId)
         .order("created_at", { ascending: false })
@@ -277,6 +281,26 @@ class BuyerController {
         });
       }
 
+      // Map each favorite to include public image URLs
+      const favoritesWithImages = favorites.map((favorite) => {
+        const property = favorite.properties;
+
+        // Convert property.photos array to full public URLs
+        const photos =
+          property.photos?.map(
+            (filename) =>
+              `${SUPABASE_URL}/storage/v1/object/public/Crown-Keys/${filename}`
+          ) || [];
+
+        return {
+          ...favorite,
+          properties: {
+            ...property,
+            photos, // array of full public URLs
+          },
+        };
+      });
+
       // Get total count for pagination
       const { count: totalCount } = await supabase
         .from("favorites")
@@ -286,7 +310,7 @@ class BuyerController {
       res.json({
         success: true,
         data: {
-          favorites,
+          favorites: favoritesWithImages,
           pagination: {
             page: parseInt(page),
             limit: parseInt(limit),
@@ -343,11 +367,7 @@ class BuyerController {
     try {
       const { propertyId } = req.params;
       const buyerId = req.user.id;
-      const {
-        message,
-        preferred_date,
-        contact_method = "email",
-      } = req.body;
+      const { message, preferred_date, contact_method = "email" } = req.body;
 
       // Check if property exists and is active
       const { data: property, error: propertyError } = await supabase

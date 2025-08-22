@@ -148,12 +148,13 @@ class AuthController {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${process.env.CLIENT_URL}/api/auth/google/callback`,
+          redirectTo: `${process.env.SERVER_URL}/api/auth/google/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
+        flow: "code",
       });
 
       if (error) {
