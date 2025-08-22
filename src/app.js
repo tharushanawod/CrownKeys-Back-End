@@ -10,6 +10,7 @@ const listingsRoutes = require("./routes/listings.routes");
 const agentsRoutes = require("./routes/agents.routes");
 const ownerRoutes = require("./routes/owner.routes");
 const buyerRoutes = require("./routes/buyer.routes");
+const commonRoutes = require("./routes/common.routes");
 
 // Import middleware
 const { handleMulterError } = require("./services/fileUpload.service");
@@ -66,7 +67,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
 app.use("/api/agents", agentsRoutes);
 app.use("/api/owner", ownerRoutes);
-app.use("/api", buyerRoutes);
+app.use("/api/buyer", buyerRoutes);
+app.use("/api", commonRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

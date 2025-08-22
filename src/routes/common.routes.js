@@ -19,8 +19,8 @@ router.get(
 // GET /properties/search → filter/search properties
 router.get(
   "/properties/search",
-  authMiddleware.optionalAuth,
-  commonController.searchProperties
+    authMiddleware.optionalAuth,
+  commonController.getAllProperties
 );
 
 // GET /properties/:id → view a single property's details
@@ -29,6 +29,5 @@ router.get(
   authMiddleware.optionalAuth,
   commonController.getPropertyById
 );
-
 
 module.exports = router;

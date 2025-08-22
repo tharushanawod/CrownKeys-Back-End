@@ -1,12 +1,44 @@
 const { supabase } = require("../config/supabase");
-const {
-  SUPABASE_URL
-} = require("../config/env");
+const { SUPABASE_URL } = require("../config/env");
 
 class CommonController {
+  // Helper method to add full image URLs to properties
+  _addImageUrls = async (properties) => {
+    if (Array.isArray(properties)) {
+      return properties.map((property) => {
+        // Convert property.photos array to full public URLs
+        const photos =
+          property.photos?.map(
+            (filename) =>
+              `${SUPABASE_URL}/storage/v1/object/public/Crown-Keys/${filename}`
+          ) || [];
+
+        return {
+          ...property,
+          photos: photos, // array of full public URLs
+        };
+      });
+    } else if (properties && typeof properties === "object") {
+      // Single property object
+      const photos =
+        properties.photos?.map(
+          (filename) =>
+            `${SUPABASE_URL}/storage/v1/object/public/Crown-Keys/${filename}`
+        ) || [];
+
+      return {
+        ...properties,
+        photos: photos, // array of full public URLs
+      };
+    }
+
+    return properties;
+  }
+
   // GET /properties → list all available properties
-  async getAllProperties(req, res) {
+  getAllProperties = async (req, res) => {
     try {
+      console.log("second function called");
       const {
         page = 1,
         limit = 12,
@@ -79,6 +111,9 @@ class CommonController {
         });
       }
 
+      // Map properties to include full image URLs
+      const propertiesWithImages = await this._addImageUrls(properties);
+
       // Get total count for pagination
       let countQuery = supabase
         .from("properties")
@@ -110,7 +145,7 @@ class CommonController {
       res.json({
         success: true,
         data: {
-          properties,
+          properties: propertiesWithImages,
           pagination: {
             page: parseInt(page),
             limit: parseInt(limit),
@@ -129,7 +164,7 @@ class CommonController {
   }
 
   // GET /properties/:id → view a single property's details
-  async getPropertyById(req, res) {
+  getPropertyById = async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -147,6 +182,9 @@ class CommonController {
         });
       }
 
+      // Map property to include full image URLs
+      const propertyWithImages = this._addImageUrls(property);
+
       // Get owner details (optional, for contact information)
       const { data: owner } = await supabase
         .from("users")
@@ -157,7 +195,7 @@ class CommonController {
       res.json({
         success: true,
         data: {
-          ...property,
+          ...propertyWithImages,
           owner: owner || null,
         },
       });
@@ -170,10 +208,11 @@ class CommonController {
     }
   }
 
-  // GET /properties/search → filter/search properties (same as getAllProperties but with different endpoint)
-  async searchProperties(req, res) {
-    // This uses the same logic as getAllProperties
+  // GET /properties/search → filter/search properties (same as getAllProperties)
+  searchProperties = async (req, res) => {
     try {
+      console.log("Search function called");
+      // Just call getAllProperties with the same logic (already includes image URL mapping)
       return this.getAllProperties(req, res);
     } catch (error) {
       console.error("Search properties error:", error);
@@ -183,8 +222,6 @@ class CommonController {
       });
     }
   }
-
- 
 }
 
 module.exports = new CommonController();
