@@ -33,7 +33,7 @@ class CommonController {
     }
 
     return properties;
-  }
+  };
 
   // GET /properties → list all available properties
   getAllProperties = async (req, res) => {
@@ -161,7 +161,7 @@ class CommonController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // GET /properties/:id → view a single property's details
   getPropertyById = async (req, res) => {
@@ -183,7 +183,8 @@ class CommonController {
       }
 
       // Map property to include full image URLs
-      const propertyWithImages = this._addImageUrls(property);
+      const propertyWithImages = await this._addImageUrls(property);
+      console.log("Get property by ID called", propertyWithImages);
 
       // Get owner details (optional, for contact information)
       const { data: owner } = await supabase
@@ -206,7 +207,7 @@ class CommonController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // GET /properties/search → filter/search properties (same as getAllProperties)
   searchProperties = async (req, res) => {
@@ -221,7 +222,8 @@ class CommonController {
         message: "Internal server error",
       });
     }
-  }
+  };
+
 }
 
 module.exports = new CommonController();

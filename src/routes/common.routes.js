@@ -19,7 +19,7 @@ router.get(
 // GET /properties/search → filter/search properties
 router.get(
   "/properties/search",
-    authMiddleware.optionalAuth,
+  authMiddleware.optionalAuth,
   commonController.getAllProperties
 );
 

@@ -1,12 +1,46 @@
 const { supabase } = require("../config/supabase");
+const { SUPABASE_URL } = require("../config/env");
 const {
   uploadDocument,
   deleteFileFromBucket,
 } = require("../services/fileUpload.service");
 
 class OwnerController {
+  // Helper method to add full image URLs to properties
+  _addImageUrls = async (properties) => {
+    if (Array.isArray(properties)) {
+      return properties.map((property) => {
+        // Convert property.photos array to full public URLs
+        const photos =
+          property.photos?.map(
+            (filename) =>
+              `${SUPABASE_URL}/storage/v1/object/public/Crown-Keys/${filename}`
+          ) || [];
+
+        return {
+          ...property,
+          photos: photos, // array of full public URLs
+        };
+      });
+    } else if (properties && typeof properties === "object") {
+      // Single property object
+      const photos =
+        properties.photos?.map(
+          (filename) =>
+            `${SUPABASE_URL}/storage/v1/object/public/Crown-Keys/${filename}`
+        ) || [];
+
+      return {
+        ...properties,
+        photos: photos, // array of full public URLs
+      };
+    }
+
+    return properties;
+  };
+
   // Add new property
-  async addProperty(req, res) {
+  addProperty = async (req, res) => {
     try {
       const ownerId = req.user.id;
       const {
@@ -36,7 +70,7 @@ class OwnerController {
               ownerId,
               "Crown-Keys"
             );
-            
+
             photoPaths.push(uniquePath);
           } catch (uploadError) {
             console.error("File upload error:", uploadError);
@@ -91,10 +125,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Get all properties owned by the user
-  async getMyProperties(req, res) {
+  getMyProperties = async (req, res) => {
     try {
       const ownerId = req.user.id;
       const {
@@ -135,6 +169,9 @@ class OwnerController {
         });
       }
 
+      // Map properties to include full image URLs
+      const propertiesWithImages = await this._addImageUrls(properties);
+
       // Get total count for pagination
       const { count: totalCount } = await supabase
         .from("properties")
@@ -144,7 +181,7 @@ class OwnerController {
       res.json({
         success: true,
         data: {
-          properties,
+          properties: propertiesWithImages,
           pagination: {
             page: parseInt(page),
             limit: parseInt(limit),
@@ -160,10 +197,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Get single property by ID (only if owned by user)
-  async getProperty(req, res) {
+  getProperty = async (req, res) => {
     try {
       const { id } = req.params;
       const ownerId = req.user.id;
@@ -182,9 +219,12 @@ class OwnerController {
         });
       }
 
+      // Map property to include full image URLs
+      const propertyWithImages = await this._addImageUrls(property);
+
       res.json({
         success: true,
-        data: property,
+        data: propertyWithImages,
       });
     } catch (error) {
       console.error("Get property error:", error);
@@ -193,10 +233,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Edit property details
-  async editProperty(req, res) {
+  editProperty = async (req, res) => {
     try {
       const { id } = req.params;
       const ownerId = req.user.id;
@@ -288,10 +328,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Delete property listing (hard delete)
-  async deleteProperty(req, res) {
+  deleteProperty = async (req, res) => {
     try {
       const { id } = req.params;
       const ownerId = req.user.id;
@@ -351,10 +391,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Disable property listing (soft delete)
-  async disableProperty(req, res) {
+  disableProperty = async (req, res) => {
     try {
       const { id } = req.params;
       const ownerId = req.user.id;
@@ -404,10 +444,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Enable property listing
-  async enableProperty(req, res) {
+  enableProperty = async (req, res) => {
     try {
       const { id } = req.params;
       const ownerId = req.user.id;
@@ -457,10 +497,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Remove photos from property
-  async removePhotos(req, res) {
+  removePhotos = async (req, res) => {
     try {
       const { id } = req.params;
       const { photoUrls, photoPaths } = req.body; // Arrays of photo URLs and paths to remove
@@ -532,10 +572,10 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 
   // Get property statistics
-  async getPropertyStats(req, res) {
+  getPropertyStats = async (req, res) => {
     try {
       const ownerId = req.user.id;
 
@@ -580,7 +620,7 @@ class OwnerController {
         message: "Internal server error",
       });
     }
-  }
+  };
 }
 
 module.exports = new OwnerController();
